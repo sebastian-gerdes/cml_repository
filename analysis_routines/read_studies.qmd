@@ -1,0 +1,64 @@
+---
+title: Read studies
+toc: true
+self-contained: true
+---
+
+```{r}
+#| message: false
+library('tidyverse')
+library('fs')
+library('lorem')
+library('randomNames')
+
+set.seed(1)
+```
+
+```{r}
+read_file <- Vectorize(
+  function(study_path, file_name){
+    read_csv(paste0(study_path, '/minimal/', 
+                    file_name),
+             show_col_types = FALSE) |> 
+      mutate(study_name = basename(study_path))
+  }, 
+  SIMPLIFY = FALSE
+)
+
+read_bcr_abl <- function() {
+  read_file(dir_ls('../studies', recurse = FALSE), file_name = 'bcr_abl.csv') |> 
+    bind_rows()
+}
+
+read_patient_master_data <- function() {
+  read_file(dir_ls('../studies', recurse = FALSE), file_name = 'patient_master_data.csv') |> 
+    bind_rows()
+}
+
+read_regimens <- function() {
+  read_file(dir_ls('../studies', recurse = FALSE), file_name = 'regimens.csv') |> 
+    bind_rows()
+}
+
+
+
+```
+
+
+## Read studies
+```{r}
+#| fig-height: 12
+
+bcr_abl <- read_bcr_abl()
+
+
+bcr_abl |> 
+  ggplot(aes(date, rho, colour = ID)) + 
+  facet_wrap(vars(study_name), scales = 'free', nrow = 5) + 
+  geom_smooth(se = FALSE) +
+  geom_point() + 
+  theme(legend.position = "none")
+
+```
+
+

@@ -1,0 +1,127 @@
+---
+title: Simulation routines
+toc: true
+self-contained: true
+---
+
+```{r}
+library('tidyverse')
+library('fs')
+library('lorem')
+library('randomNames')
+
+set.seed(1)
+padded_numbers <- function(n) {
+  width <- nchar(as.character(n))
+  sprintf(paste0("%0", width, "d"), 1:n)
+}
+
+paste0('PAT', padded_numbers(10))
+```
+
+```{r}
+#| fig-height: 12
+create_study <- function(study_name,
+                         number_of_individuals, 
+                         study_start_date,
+                         nr_of_bcr_abl_measurements = 20,
+                         nr_of_regimen_entries = 3,
+                         rho_sd = 0.1) {
+  dir_name <- paste0('../studies/', study_name, '/')
+  dir_create(dir_name, recurse = TRUE)
+  dir_create(paste0(dir_name, 'minimal/'))
+  dir_create(paste0(dir_name, 'raw/'))
+  dir_create(paste0(dir_name, 'prepare/'))
+  dir_create(paste0(dir_name, 'analyze/'))
+  
+  patient_master_data <- tibble(
+    ID = paste0(sample(LETTERS, 3), '_', padded_numbers(number_of_individuals)),
+    date_of_birth = as.Date('1930-1-1') + sample(365 * 50, number_of_individuals),
+    initial_diagnosis = study_start_date + sample(365, number_of_individuals)
+  )
+
+  create_treatment_regimen <- function(initial_diagnosis, ID) {
+    tibble(start = initial_diagnosis + 365 * 5 + sample(365, 4), 
+           stop = c(start[-1], start[length(start)] + 100),
+           drug = sample(c('Imatinib', 'Dasatinib'), 4, replace = TRUE), 
+           dose = sample(c(0.5, 1), 4, replace = TRUE),
+           ID = ID)
+  }
+  
+  create_bcr_abl <- function(ID, start_date) {
+    start_level <- runif(1, 0.8, 1) |> log(base = 10)
+    stop_level <- runif(1, -10, -5)
+    nr_of_days <- 365 + sample(365 * 5, 1)
+    nr_of_days_alpha <- nr_of_days * runif(1, 0.1, 0.2)
+    reduction_alpha <- runif(1, -4, -2)
+    reduction_beta <- runif(1, -4, -2)
+    ii <- sort(sample(nr_of_days, nr_of_bcr_abl_measurements, replace = TRUE))
+    tibble(ID = ID, 
+           ii = ii, 
+           date = start_date + ii, 
+           rho = start_level +
+             ifelse(ii < nr_of_days_alpha, ii / nr_of_days_alpha * reduction_alpha, reduction_alpha) +
+             ii / nr_of_days * reduction_beta +
+             rnorm(nr_of_bcr_abl_measurements, 0, rho_sd))
+  }
+  
+  regimens <- tibble()
+  bcr_abl <- tibble()
+  for(i in 1:number_of_individuals) {
+    regimens <- regimens |> bind_rows(
+      create_treatment_regimen(patient_master_data$initial_diagnosis[i], ID = patient_master_data$ID[i])
+    )
+    bcr_abl <- bcr_abl |> bind_rows(
+      create_bcr_abl(ID = patient_master_data$ID[i], start_date = patient_master_data$initial_diagnosis[i])
+    )
+  }
+  write_csv(patient_master_data, paste0(dir_name, '/minimal/patient_master_data.csv'))
+  write_csv(regimens, paste0(dir_name, '/minimal/regimens.csv'))
+  write_csv(bcr_abl, paste0(dir_name, '/minimal/bcr_abl.csv'))
+  return(list(patient_master_data = patient_master_data,
+              regimens = regimens,
+              bcr_abl = bcr_abl))
+}
+
+
+
+
+create_study_v <- Vectorize(create_study, SIMPLIFY = FALSE)
+```
+
+## Make many studies
+
+```{r}
+nn <- 10
+x <- create_study_v(randomNames(n = nn, which.names = "first"),
+                    sample(10, nn) + 10, 
+                    study_start_date = as.Date('1990-01-01') + sample(365 * 30, nn))
+
+
+```
+
+## Read studies
+```{r}
+#| fig-height: 12
+read_file <- Vectorize(
+  function(study_path, file_name){
+    read_csv(paste0(study_path, '/minimal/', file_name)) |> 
+      mutate(study_name = basename(study_path))
+  }, 
+  SIMPLIFY = FALSE
+)
+
+
+dd <- read_file(dir_ls('../studies', recurse = FALSE), file_name = 'bcr_abl.csv') |> 
+  bind_rows()
+
+dd |> 
+  ggplot(aes(date, rho, colour = ID)) + 
+  facet_wrap(vars(study_name), scales = 'free', nrow = nn / 2) + 
+  geom_smooth(se = FALSE) +
+  geom_point() + 
+  theme(legend.position = "none")
+
+```
+
+
