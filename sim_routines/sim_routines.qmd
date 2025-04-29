@@ -33,6 +33,7 @@ create_study <- function(study_name,
   dir_create(paste0(dir_name, 'raw/'))
   dir_create(paste0(dir_name, 'prepare/'))
   dir_create(paste0(dir_name, 'analyze/'))
+  dir_create(paste0(dir_name, 'full_data/'))
   
   patient_master_data <- tibble(
     ID = paste0(sample(LETTERS, 3), '_', padded_numbers(number_of_individuals)),
@@ -77,13 +78,22 @@ create_study <- function(study_name,
   }
   write_csv(patient_master_data, paste0(dir_name, '/minimal/patient_master_data.csv'))
   write_csv(regimens, paste0(dir_name, '/minimal/regimens.csv'))
+  write_csv(regimens, paste0(dir_name, '/minimal/events.csv'))
   write_csv(bcr_abl, paste0(dir_name, '/minimal/bcr_abl.csv'))
+  full_join(patient_master_data, regimens) |> full_join(bcr_abl) |> 
+    write_csv(paste0(dir_name, '/full_data/full_data.csv'))
+  ii <- ipsum(3) |> unlist()
+  ii |> writeLines(paste0(dir_name, '/README.txt'))
+  ii |> writeLines(paste0(dir_name, 'raw/data.xlsx'))
+  ii |> writeLines(paste0(dir_name, 'prepare/prepare.R'))
+  ii |> writeLines(paste0(dir_name, 'analyze/analyze.R'))
+  
   return(list(patient_master_data = patient_master_data,
               regimens = regimens,
               bcr_abl = bcr_abl))
 }
 
-
+create_study('TEST', 10, as.Date('2025-03-03'))
 
 
 create_study_v <- Vectorize(create_study, SIMPLIFY = FALSE)

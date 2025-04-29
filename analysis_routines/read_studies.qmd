@@ -48,6 +48,7 @@ read_regimens <- function() {
 ## Read studies
 ```{r}
 #| fig-height: 12
+#| fig-width: 9
 
 bcr_abl <- read_bcr_abl()
 
