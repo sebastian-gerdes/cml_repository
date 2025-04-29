@@ -110,6 +110,17 @@ x <- create_study_v(randomNames(n = nn, which.names = "first"),
 
 ```
 
+## Write additional data
+```{r}
+dir_create('../additional/STUDY_123')
+iris |> write_csv('../additional/STUDY_123/some_data.csv')
+
+dir_create('../additional/STUDY_456')
+iris |> write_csv('../additional/STUDY_456/some_other_data.csv')
+
+```
+
+
 ## Read studies
 ```{r}
 #| fig-height: 12
